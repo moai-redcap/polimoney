@@ -1,10 +1,40 @@
+import datetime
 import json
 import logging
 import os
 import re
 import uuid
+from decimal import ROUND_HALF_UP, Decimal
 
 from openpyxl import utils
+from openpyxl.utils.datetime import from_excel
+
+
+def convert_date(value):
+    """Excel日付値をYYYY-MM-DD形式の文字列に変換する。
+
+    Args:
+        value: Excelセルの値（datetime、int、float、Noneなど）
+
+    Returns:
+        str or None: YYYY-MM-DD形式の日付文字列。変換できない場合はNone。
+    """
+    if value is None:
+        return None
+
+    # 既にdatetimeの場合
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.strftime("%Y-%m-%d")
+
+    # Excelシリアル値（数値）の場合
+    if isinstance(value, (int, float)):
+        try:
+            dt = from_excel(value)
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            return None
+
+    return None
 
 
 def extract_number(value):
@@ -20,14 +50,14 @@ def extract_number(value):
     if value is None:
         return 0
 
-    # 既に数値の場合はfloatでかつ整数値ならintで返す
+    # 既に数値の場合は整数はそのまま
     if isinstance(value, int):
         return value
+
+    # floatは四捨五入してintで返す
     if isinstance(value, float):
-        if value.is_integer():
-            return int(value)
-        else:
-            return value
+        rounded = int(Decimal(str(value)).quantize(0, ROUND_HALF_UP))
+        return rounded
 
     # 文字列から数字（小数点含む）を抽出
     if isinstance(value, str):
